@@ -1,9 +1,8 @@
 import crypto from "crypto";
 import Order from "../models/order.js";
 
-/* ================================
-   1. INITIALIZE PAYMENT
-================================ */
+// INITIALIZE PAYMENT
+
 export const initializePayment = async (req, res) => {
   try {
     const { orderId } = req.body;
@@ -40,14 +39,14 @@ export const initializePayment = async (req, res) => {
     const currency = "LKR";
     const amount = Number(order.totalAmount).toFixed(2);
 
-    // 🔐 Hash secret
+    // Hash secret
     const hashedSecret = crypto
       .createHash("md5")
       .update(merchantSecret)
       .digest("hex")
       .toUpperCase();
 
-    // 🔐 PayHere hash
+    //PayHere hash
     const hash = crypto
       .createHash("md5")
       .update(
@@ -94,10 +93,8 @@ export const initializePayment = async (req, res) => {
   }
 };
 
-/* ================================
-   2. PAYMENT NOTIFY (CRITICAL)
-   PayHere calls this automatically
-================================ */
+// PAYMENT NOTIFY (PayHere calls this automatically)
+   
 export const paymentNotify = async (req, res) => {
   try {
     const {
@@ -112,7 +109,7 @@ export const paymentNotify = async (req, res) => {
 
     const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET;
 
-    // 🔐 Generate local hash
+    // Generate local hash
     const hashedSecret = crypto
       .createHash("md5")
       .update(merchantSecret)
@@ -138,14 +135,14 @@ export const paymentNotify = async (req, res) => {
       return res.status(404).send("Order not found");
     }
 
-    // ✅ SUCCESS PAYMENT
+    //  SUCCESS PAYMENT
     if (localMd5sig === md5sig && status_code === "2") {
       order.paymentStatus = "Paid";
       order.paymentMethod = "PAYHERE";
       order.orderStatus = "Preparing";
       order.paymentId = payment_id;
     } else {
-      // ❌ FAILED PAYMENT
+      //  FAILED PAYMENT
       order.paymentStatus = "Failed";
     }
 
@@ -155,5 +152,36 @@ export const paymentNotify = async (req, res) => {
   } catch (error) {
     console.log(error);
     return res.status(500).send("Error");
+  }
+};
+
+// CONFIRM PAYMENT (FRONTEND FALLBACK)
+   
+export const confirmPayment = async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    const userId = req.user.id;
+
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: "Order ID is required" });
+    }
+
+    const order = await Order.findOne({ _id: orderId, userId });
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    // Idempotent — safe to call even if webhook already marked it Paid
+    if (order.paymentStatus !== "Paid") {
+      order.paymentStatus = "Paid";
+      order.paymentMethod = "PAYHERE";
+      order.orderStatus = "Preparing";
+      await order.save();
+    }
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

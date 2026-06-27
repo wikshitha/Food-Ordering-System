@@ -3,6 +3,7 @@ import api from "../api/axios";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/authContext";
 import Spinner from "../components/Spinner";
+import toast from "react-hot-toast";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -25,7 +26,7 @@ export default function Login() {
 
       navigate(res.data.user.role === "admin" ? "/admin" : "/");
     } catch (error) {
-      alert(error.response?.data?.message || "Login failed");
+      toast.error(error.response?.data?.message || "Login failed");
     } finally {
       setLoading(false);
     }

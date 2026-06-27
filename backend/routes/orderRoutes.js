@@ -5,6 +5,7 @@ import {
   getUserOrders,
   getAllOrders,
   updateOrderStatus,
+  getOrderById,
 } from "../controllers/orderController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -17,6 +18,8 @@ router.post("/", protect, placeOrder);
 router.get("/my-orders", protect, getUserOrders);
 
 router.get("/", protect, adminOnly, getAllOrders);
+
+router.get("/:id", protect, getOrderById);
 
 router.put("/:id", protect, adminOnly, updateOrderStatus);
 

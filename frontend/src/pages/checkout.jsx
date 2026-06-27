@@ -3,6 +3,7 @@ import api from "../api/axios";
 import { useAuth } from "../context/authContext";
 import { useNavigate } from "react-router-dom";
 import Spinner from "../components/Spinner";
+import toast from "react-hot-toast";
 
 export default function Checkout() {
   const { user } = useAuth();
@@ -15,20 +16,41 @@ export default function Checkout() {
     deliveryAddress: "",
     phone: "",
   });
-  const [notice, setNotice] = useState("");
+  const loadCart = async () => {
+    try {
+      const res = await api.get("/cart");
+      setCart(res.data || { items: [] });
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to load cart");
+    }
+  };
 
   useEffect(() => {
-    const loadCart = async () => {
-      try {
-        const res = await api.get("/cart");
-        setCart(res.data || { items: [] });
-      } catch (error) {
-        setNotice(error.response?.data?.message || "Failed to load cart");
-      }
-    };
-
     loadCart();
   }, []);
+
+  const handleUpdateQty = async (foodId, quantity) => {
+    if (quantity <= 0) {
+      await handleRemove(foodId);
+      return;
+    }
+    try {
+      await api.put("/cart/update", { foodId, quantity });
+      await loadCart();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update quantity");
+    }
+  };
+
+  const handleRemove = async (foodId) => {
+    try {
+      await api.delete(`/cart/${foodId}`);
+      await loadCart();
+      toast.success("Item removed 🗑");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to remove item");
+    }
+  };
 
   const cartItems = cart?.items || [];
 
@@ -39,7 +61,6 @@ export default function Checkout() {
 
   const handlePlaceOrder = async () => {
     setLoading(true);
-    setNotice("");
 
     try {
       const orderRes = await api.post("/orders", {
@@ -51,6 +72,7 @@ export default function Checkout() {
       const order = orderRes.data.order;
 
       if (paymentMethod === "COD") {
+        toast.success("Order placed successfully! 🎉");
         navigate("/payment-success", {
           state: { orderId: order._id, paymentMethod: "COD" },
         });
@@ -67,25 +89,42 @@ export default function Checkout() {
         throw new Error("PayHere SDK is not loaded");
       }
 
-      window.payhere.onCompleted = () => {
+      let paymentCompleted = false;
+
+      window.payhere.onCompleted = async () => {
+        paymentCompleted = true;
+
+        try {
+          await api.post("/payment/confirm", { orderId: order._id });
+        } catch (err) {
+          console.warn("Payment confirm call failed:", err.message);
+          
+        }
+
+        toast.success("Payment completed successfully! 💳");
         navigate("/payment-success", {
           state: { orderId: order._id, paymentMethod: "PAYHERE" },
         });
       };
 
       window.payhere.onDismissed = () => {
-        navigate("/payment-cancel", {
-          state: { orderId: order._id },
-        });
+        setTimeout(() => {
+          if (!paymentCompleted) {
+            toast.error("Payment was cancelled.");
+            navigate("/payment-cancel", {
+              state: { orderId: order._id },
+            });
+          }
+        }, 1500);
       };
 
       window.payhere.onError = (error) => {
-        setNotice(error || "Payment error");
+        toast.error(error || "Payment error");
       };
 
       window.payhere.startPayment(paymentPayload);
     } catch (err) {
-      setNotice(err.response?.data?.message || err.message || "Failed to place order");
+      toast.error(err.response?.data?.message || err.message || "Failed to place order");
     } finally {
       setLoading(false);
     }
@@ -123,12 +162,7 @@ export default function Checkout() {
           </button>
         </div>
 
-        {/* NOTICE */}
-        {notice && (
-          <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
-            {notice}
-          </div>
-        )}
+
 
         {/* GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -222,7 +256,7 @@ export default function Checkout() {
               </div>
             ) : (
               <div className="space-y-3 max-h-[350px] overflow-y-auto">
-                {cartItems.map((item) => (
+                 {cartItems.map((item) => (
                   <div
                     key={item.foodId || item._id}
                     className="flex items-center gap-3 p-3 rounded-xl bg-primary/40 border border-secondary/30"
@@ -234,14 +268,34 @@ export default function Checkout() {
 
                     <div className="flex-1">
                       <p className="text-sm font-semibold">{item.name}</p>
-                      <p className="text-xs text-gray-400">
-                        Qty: {item.quantity}
-                      </p>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <button
+                          onClick={() => handleUpdateQty(item.foodId, item.quantity - 1)}
+                          className="w-5 h-5 flex items-center justify-center rounded bg-secondary/30 hover:bg-secondary/50 text-white font-bold text-xs"
+                        >
+                          -
+                        </button>
+                        <span className="text-xs font-semibold text-white">{item.quantity}</span>
+                        <button
+                          onClick={() => handleUpdateQty(item.foodId, item.quantity + 1)}
+                          className="w-5 h-5 flex items-center justify-center rounded bg-secondary/30 hover:bg-secondary/50 text-white font-bold text-xs"
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
 
-                    <p className="text-sm font-bold text-action">
-                      LKR {(item.price * item.quantity).toFixed(2)}
-                    </p>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-action">
+                        LKR {(item.price * item.quantity).toFixed(2)}
+                      </p>
+                      <button
+                        onClick={() => handleRemove(item.foodId)}
+                        className="text-xs text-red-400 hover:text-red-300 mt-1 cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

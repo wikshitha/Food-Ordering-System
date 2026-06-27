@@ -2,10 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/axios";
 import Spinner from "../components/Spinner";
+import toast from "react-hot-toast";
 
-/* ────────────────────────────────
-   CONSTANTS
-──────────────────────────────── */
 const ORDER_STATUSES = [
   "Pending",
   "Preparing",
@@ -33,9 +31,6 @@ function StatusBadge({ label }) {
   );
 }
 
-/* ────────────────────────────────
-   MAIN ADMIN DASHBOARD
-──────────────────────────────── */
 export default function AdminDashboard() {
   const [orders, setOrders] = useState([]);
   const [foods, setFoods] = useState([]);
@@ -57,9 +52,7 @@ export default function AdminDashboard() {
   const [imageFile, setImageFile] = useState(null);
   const [preview, setPreview] = useState("");
 
-  /* ────────────────────────────────
-     LOAD DATA
-  ──────────────────────────────── */
+  
   const loadData = async () => {
     setLoading(true);
     try {
@@ -79,34 +72,53 @@ export default function AdminDashboard() {
     loadData();
   }, []);
 
-  /* ────────────────────────────────
-     UPDATE ORDER STATUS
-  ──────────────────────────────── */
+  
+  // UPDATE ORDER STATUS
+  
   const updateStatus = async (id, status) => {
     try {
       await api.put(`/orders/${id}`, { status });
       await loadData();
+      toast.success(`Status updated to "${status}"`);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to update status");
+      toast.error(err.response?.data?.message || "Failed to update status");
     }
   };
 
-  /* ────────────────────────────────
-     DELETE FOOD
-  ──────────────────────────────── */
+  // DELETE FOOD
+
   const deleteFood = async (id) => {
-    if (!confirm("Are you sure you want to delete this food item?")) return;
-    try {
-      await api.delete(`/foods/${id}`);
-      setFoods((prev) => prev.filter((f) => f._id !== id));
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete food item");
-    }
+    toast((t) => (
+      <span className="flex items-center gap-3">
+        <span>Delete this food item?</span>
+        <button
+          className="px-2 py-1 rounded bg-red-500 text-white text-xs"
+          onClick={async () => {
+            toast.dismiss(t.id);
+            try {
+              await api.delete(`/foods/${id}`);
+              setFoods((prev) => prev.filter((f) => f._id !== id));
+              toast.success("Food item deleted!");
+            } catch (err) {
+              toast.error(err.response?.data?.message || "Failed to delete");
+            }
+          }}
+        >
+          Confirm
+        </button>
+        <button
+          className="px-2 py-1 rounded bg-white/10 text-xs"
+          onClick={() => toast.dismiss(t.id)}
+        >
+          Cancel
+        </button>
+      </span>
+    ), { duration: 6000 });
   };
 
-  /* ────────────────────────────────
-     ADD FOOD
-  ──────────────────────────────── */
+
+  // ADD FOOD
+
   const addFood = async () => {
     setSubmitting(true);
     try {
@@ -124,16 +136,16 @@ export default function AdminDashboard() {
       setPreview("");
 
       await loadData();
+      toast.success("Food item added successfully!");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to add food item");
+      toast.error(err.response?.data?.message || "Failed to add food item");
     } finally {
       setSubmitting(false);
     }
   };
 
-  /* ────────────────────────────────
-     EDIT FOOD
-  ──────────────────────────────── */
+  // EDIT FOOD
+
   const startEdit = (food) => {
     setEditingFood(food);
     setForm({
@@ -164,16 +176,14 @@ export default function AdminDashboard() {
       setPreview("");
 
       await loadData();
+      toast.success("Food item updated successfully!");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to update food item");
+      toast.error(err.response?.data?.message || "Failed to update food item");
     } finally {
       setSubmitting(false);
     }
   };
 
-  /* ────────────────────────────────
-     UI (HOME STYLE)
-  ──────────────────────────────── */
   return (
     <div className="min-h-screen bg-primary text-white p-4 relative overflow-hidden">
 
@@ -230,7 +240,7 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <>
-            {/* ───────────────── ORDERS ───────────────── */}
+            {/* ORDERS  */}
             {tab === "orders" && (
               <div className="space-y-4">
                 {orders.map((o) => (
@@ -251,7 +261,25 @@ export default function AdminDashboard() {
 
                     {/* PAYMENT + STATUS */}
                     <div className="flex flex-col gap-2">
-                      <StatusBadge label={o.paymentStatus} />
+                      {/* Payment info pill */}
+                      <span className={`px-3 py-1 text-xs font-bold rounded-full border uppercase w-fit ${
+                        o.paymentStatus === "Paid"
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                          : o.paymentStatus === "Failed"
+                          ? "bg-red-500/10 text-red-400 border-red-500/30"
+                          : o.paymentMethod === "COD"
+                          ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
+                          : "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                      }`}>
+                        {o.paymentStatus === "Paid"
+                          ? "✅ Paid (PayHere)"
+                          : o.paymentStatus === "Failed"
+                          ? "❌ Payment Failed"
+                          : o.paymentMethod === "COD"
+                          ? "💵 Cash on Delivery"
+                          : "⏳ Awaiting Payment"}
+                      </span>
+
                       <StatusBadge label={o.orderStatus} />
                       <p className="font-bold mt-1">
                         LKR {o.totalAmount}
@@ -286,7 +314,7 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* ───────────────── FOODS ───────────────── */}
+            {/* FOODS */}
             {tab === "foods" && (
               <div className="space-y-6">
 
@@ -398,14 +426,14 @@ export default function AdminDashboard() {
                           onClick={() => startEdit(f)}
                           className="flex-1 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm"
                         >
-                          ✏️ Edit
+                          Edit
                         </button>
 
                         <button
                           onClick={() => deleteFood(f._id)}
                           className="flex-1 px-3 py-2 rounded-xl border border-red-400/40 text-red-300 text-sm"
                         >
-                          🗑️ Delete
+                          Delete
                         </button>
                       </div>
                     </div>

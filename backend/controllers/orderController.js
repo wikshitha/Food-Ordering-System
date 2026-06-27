@@ -60,6 +60,33 @@ export const placeOrder = async (req, res) => {
   }
 };
 
+// GET SINGLE ORDER BY ID
+
+export const getOrderById = async (req, res) => {
+
+  try {
+
+    const order = await Order.findOne({
+      _id: req.params.id,
+      userId: req.user.id,
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.json({ order });
+
+  } catch (error) {
+
+    res.status(500).json({
+      message: error.message,
+    });
+
+  }
+
+};
+
 // GET USER ORDERS
 
 export const getUserOrders = async (req, res) => {

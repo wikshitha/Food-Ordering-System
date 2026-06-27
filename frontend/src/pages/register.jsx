@@ -3,6 +3,7 @@ import api from "../api/axios";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/authContext";
 import Spinner from "../components/Spinner";
+import toast from "react-hot-toast";
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -32,7 +33,7 @@ export default function Register() {
 
       navigate(loginRes.data.user.role === "admin" ? "/admin" : "/");
     } catch (error) {
-      alert(error.response?.data?.message || "Error");
+      toast.error(error.response?.data?.message || "Registration failed");
     } finally {
       setLoading(false);
     }

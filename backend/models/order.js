@@ -60,10 +60,11 @@ const orderSchema = new mongoose.Schema(
       default: "Pending",
     },
 
-    // 🔥 ADD THESE FOR PAYHERE
+    // ADD THESE FOR PAYHERE
     orderId: {
       type: String,
       unique: true,
+      sparse: true,
     },
 
     paymentId: {
