@@ -155,13 +155,6 @@ export default function Home() {
             placeholder="Search food..."
             className="flex-1 bg-primary/40 border border-secondary/30 rounded-xl px-4 py-3 text-sm"
           />
-
-          <Link
-            to="/checkout"
-            className="px-4 py-3 rounded-xl bg-action text-sm font-semibold"
-          >
-            Checkout
-          </Link>
         </div>
 
 
