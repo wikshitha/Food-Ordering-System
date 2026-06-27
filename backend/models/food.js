@@ -1,0 +1,31 @@
+import mongoose from "mongoose";
+
+const foodSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+    description: {
+      type: String,
+      required: true,
+    },
+    price: {
+      type: Number,
+      required: true,
+    },
+    image: {
+      type: String, // Cloudinary URL
+      required: true,
+    },
+    category: {
+      type: String,
+      default: "general",
+    },
+  },
+  { timestamps: true }
+);
+
+const Food = mongoose.model("Food", foodSchema);
+
+export default Food;
